@@ -13,14 +13,14 @@ class CAT
   public:
     CAT(HardwareSerial& serial, RadioHead& head);
     void processSerial(char serData);
+    String qAFGain();
+    void sAFGain(String gain);
   private:
     HardwareSerial& _serial;
     RadioHead& _head;
     String serIn;
     void PTTDown();
     void PTTUp();
-    int intFromAscii(char ascii){
-    
+    int intFromAscii(char ascii);
 };
-
 #endif

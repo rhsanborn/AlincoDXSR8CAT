@@ -28,7 +28,7 @@ void CAT::processSerial(char serData){
         if(serIn[3] = ';')
           qAFGain();
         else if (serIn.length() == 6)
-          sAFGain();
+          sAFGain(serIn);
       serIn = "";
       return;
       }
@@ -53,18 +53,15 @@ void CAT::PTTUp(){
 }
 
 String CAT::qAFGain(){
-     
+  return "true";
 }
 
-void CAT::sAFGain(){
-  int gain = 0;
-  for(int i =  3; i < 6; i++){
-    gain = gain * 10 + intFromAscii(serIn[i]);
-  }
+void CAT::sAFGain(String gain){
+  unsigned int head_buttons = 0;
   _head.sendButton(head_buttons);
 }
 
-int RadioHead::intFromAscii(char ascii){
+int CAT::intFromAscii(char ascii){
     if(ascii <= 57)
         return ascii - '0';
     else

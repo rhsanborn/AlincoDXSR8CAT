@@ -68,14 +68,21 @@ String RadioHead::createSWDS(unsigned int bitRegister){
 
 String RadioHead::createSWDV(){
     String SWDV = "SWDV";
-    SWDV += catRIT >> 4;
-    SWDV += catRIT & 15;
-    SWDV += catIF >> 4;
-    SWDV += catIF & 15;
-    SWDV += catSquelch >> 4;
-    SWDV += catSquelch & 15;
-    SWDV += catVol >> 4;
-    SWDV += catVol & 15;
+    unsigned short sendRIT, sendIF, sendSquelch, sendVol;
+
+    sendRIT = cRITRcv ? catRIT : radRIT;
+    sendIF = cIFRcv ? catIF : radIF;
+    sendSquelch = cSqRcv ? catSquelch : radSquelch;
+    sendVol = cVolRcv ? catVol : radVol;
+    
+    SWDV += sendRIT >> 4;
+    SWDV += sendRIT & 15;
+    SWDV += sendIF >> 4;
+    SWDV += sendIF & 15;
+    SWDV += sendSquelch >> 4;
+    SWDV += sendSquelch & 15;
+    SWDV += sendVol >> 4;
+    SWDV += sendVol & 15;
 
     SWDV += "00100\r\n";
     return SWDV;
@@ -94,9 +101,17 @@ String RadioHead::validateSWDR(String SWDR){
 String RadioHead::radioSWDV(String SWDV){
   //SWDV000000000100
   radRIT = (intFromAscii(SWDV[4])<<4) | intFromAscii(SWDV[5]);
+  if(abs(radRIT-catRIT)>2)
+    cRITRcv = false;
   radIF = (intFromAscii(SWDV[6])<<4) | intFromAscii(SWDV[7]);
+  if(abs(radIF-catIF)>2)
+    cIFRcv = false;
   radSquelch = (intFromAscii(SWDV[8])<<4) | intFromAscii(SWDV[9]);
+  if(abs(radSquelch-catSquelch)>2)
+    cSqRcv = false;
   radVol = (intFromAscii(SWDV[10])<<4) | intFromAscii(SWDV[11]);
+  if(abs(radVol-catVol)>2)
+    cVolRcv = false;
   return SWDV;
 }
 
@@ -104,7 +119,26 @@ int RadioHead::getVol(){
   return radVol;
 }
 
-void RadioHead::setVol(int vol){
-    catVol = vol;
-    sendSWD(createSWDV);
+void RadioHead::setRIT(unsigned short rit){
+  cRITRcv = true;
+  catRIT = rit;
+  sendSWD(createSWDV());
+}
+
+void RadioHead::setIF(unsigned short IF){
+  cIFRcv = true;
+  catIF = IF;
+  sendSWD(createSWDV());
+}
+
+void RadioHead::setSquelch(unsigned short squelch){
+  cSqRcv = true;
+  catSquelch = squelch;
+  sendSWD(createSWDV());
+}
+
+void RadioHead::setVol(unsigned short vol){
+  cVolRcv = true;
+  catVol = vol;
+  sendSWD(createSWDV());
 }
