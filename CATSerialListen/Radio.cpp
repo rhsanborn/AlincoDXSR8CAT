@@ -64,7 +64,7 @@ void Radio::processLCSA(unsigned short recvLCSA[]){
 
 } 
 
-String Radio::getFreq(){
+int Radio::getFreq(){
     return freq;
 }
 

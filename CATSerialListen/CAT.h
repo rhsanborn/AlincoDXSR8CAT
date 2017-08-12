@@ -15,6 +15,7 @@ class CAT
     void processSerial(char serData);
     String qAFGain();
     void sAFGain(String gain);
+    String qRadioInfo();
   private:
     HardwareSerial& _serial;
     RadioHead& _head;

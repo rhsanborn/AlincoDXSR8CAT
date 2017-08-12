@@ -18,6 +18,9 @@ class RadioHead
     void sendButton(unsigned int buttons);
     String createSWDV();
     int getVol();
+    int setRIT(int vol);
+    int setIF(int vol);
+    int setSquelch(int vol);
     int setVol(int vol);
   private:
     int intFromAscii(char ascii);

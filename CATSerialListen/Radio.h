@@ -12,7 +12,7 @@ class Radio
   public:
     Radio();
     void processLCSA(unsigned short recvLCSA[]);   
-    String getFreq();
+    int getFreq();
     int getRFGain();
     char getAGC();
     char getFunc();
@@ -32,7 +32,7 @@ class Radio
     unsigned int getDigit_3(int first, int second);
     unsigned int getDigit_4(int first, int second);
     char lcdToChar(unsigned int lcd);
-    String freq;
+    int freq;
     char mode[3];
     short rfGain;
     char agc;

@@ -56,9 +56,12 @@ String CAT::qAFGain(){
   return "true";
 }
 
-void CAT::sAFGain(String gain){
-  unsigned int head_buttons = 0;
-  _head.sendButton(head_buttons);
+void CAT::sAFGain(String serIn){
+    unsigned short gain = 0;
+
+    for(int i = 3; i < 6; i++)
+        gain = gain * 10 + intFromAscii(serIn[i]);
+    _head.setVol(gain);
 }
 
 int CAT::intFromAscii(char ascii){
@@ -68,3 +71,9 @@ int CAT::intFromAscii(char ascii){
         return ascii - 55;
 }
 
+String CAT::qRadioInfo(){
+    String info = "IF";
+    
+    String    
+
+}
