@@ -37,8 +37,11 @@ void setup() {
   // put your setup code here, to run once:
 
   // start serial port at 9600 bps:
+  //Serial is the computer
   Serial.begin(38400);
+  //Serial1 is the head of the radio
   Serial1.begin(38400);
+  //Serial2 is the main body of the radio
   Serial2.begin(38400);
 
   for(int i = 0; i < numKeys; i++)
@@ -103,13 +106,13 @@ void loop() {
   }
 
   
-  while(Serial1.available() > 0){
-    serReadData = Serial1.read();
-    head.processSerial(serReadData);
-  }
+    while(Serial1.available() > 0){
+        serReadData = Serial1.read();
+        head.processSerial(serReadData);
+    }
 
-  while(Serial.available() > 0){
-     serReadData = Serial.read();
-     cat.processSerial(serReadData);  
-  }
+    while(Serial.available() > 0){
+        serReadData = Serial.read();
+        cat.processSerial(serReadData);  
+    }
 }

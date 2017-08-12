@@ -1,396 +1,218 @@
 /*
-  Radio.cpp - Status of xcver side of the radio
+  Radio.cpp - Process Alinco Screen Messages
 */
 
 #include "Radio.h"
+#include "RadioScreen.h"
+#include "Arduino.h"
 
-Radio::Radio(){
+
+Radio::Radio(HardwareSerial& radioSerial)
+    : _radioSerial(radioSerial)
+{
 
 }
-
-void Radio::processLCSA(unsigned short recvLCSA[]){
-    char digits[7];
-    digits[0] = lcdToChar(getDigit_1(recvLCSA[9],recvLCSA[10]));
-    digits[1] = lcdToChar(getDigit_1(recvLCSA[11],recvLCSA[12]));
-    digits[2] = lcdToChar(getDigit_1(recvLCSA[13],recvLCSA[14]));
-    digits[3] = lcdToChar(getDigit_1(recvLCSA[15],recvLCSA[16]));
-    digits[4] = lcdToChar(getDigit_2(recvLCSA[26],recvLCSA[27]));
-    digits[5] = lcdToChar(getDigit_3(recvLCSA[24],recvLCSA[25]));
-    digits[6] = lcdToChar(getDigit_4(recvLCSA[22],recvLCSA[23]));
-
-    bool isFreq = true;
-    String tempFreq = "";
-    for(int i = 0; i < 7; i++){
-        int value = digits[i]-'0';
-        tempFreq += digits[i];
-        if(value < 0 || value > 9)
-            isFreq = false;
-    }
-
-    if(isFreq)
-        freq = tempFreq;
-
-    rfGain = RFPower(recvLCSA);
-    agc = AGC(recvLCSA);
-
-    if(recvLCSA[9] & (1<<4))
-        func = true;
-    else
-        func = false;
-    if(recvLCSA[11] & (1<<4))
-        lock = true;
-    else
-        lock = false;
-    if(recvLCSA[29] & (1<<0))
-        multiFunc = true;
-    else
-        multiFunc = false;
-    if(recvLCSA[26] & (1<<4))
-        nb = true;
-    else
-        nb = false;   
-    if(recvLCSA[23] & (1<<0))
-        tone = true;
-    else
-        tone = false;
-    if(recvLCSA[6] & (1<<4))
-        tune = true;
-    else
-        tune = false;
-    if(recvLCSA[6] & (1<<6))
-        split = true;
-    else
-        split = false;
-
-} 
 
 int Radio::getFreq(){
-    return freq;
+    return _freq;
 }
 
-int Radio::RFPower(unsigned short recvLCSA[]){
-    if(recvLCSA[28] & (1<<4))
-        return 10;
-    if(recvLCSA[30] & (1<<4))
-        return 0;
-    if(recvLCSA[5] & (1<<0))
-        return -10;
+int Radio::getVol(){
+    return _radVol;
+}
 
-    return -20;
+void Radio::setVol(unsigned short vol){
+
+}
+
+void Radio::setRITOn(){
+
+}
+
+void Radio::setXitOn(){
+
+}
+
+void Radio::setITVal(int it){
+  cITRcv = true;
+  catIT = it;
+  sendSWD(createSWDV());
+}
+
+bool Radio::getRitOn(){
+    return _ritOn;
+}
+
+bool Radio::getXitOn(){
+    return _xitOn;
+}
+
+int Radio::getITVal(){
+    return _radITVal;
+}
+
+void Radio::setIFVal(int IF){
+    _cIFRcv = true;
+    _catIF = IF;
+    _sendSWD(createSWDV());
+}
+
+void Radio::setIFOn(){
+
+}
+
+int Radio::getIFVal(){
+    return _radIFVal;
+}
+
+bool Radio::getIFOn(){
+    return _ifOn;
+}
+
+void Radio::setSquelch(unsigned short squelch){
+    _cSqRcv = true;
+    _catSquelch = squelch;
+    _sendSWD(createSWDV());
+}
+
+int Radio::getSquelch(){
+    return _radSquelch;
+}
+
+int Radio::setVol(unsigned short vol){
+    _cVolRcv = true;
+    _catVol = vol;
+    sendSWD(createSWDV());
 }
 
 int Radio::getRFGain(){
-    return rfGain;
+    return _rfGain;
 }
 
 char Radio::getAGC(){
-   return agc; 
+    return _agc;
 }
 
-char Radio::getFunc(){
-   return func; 
+bool Radio::getNarrow(){
+    return _nar;
 }
 
-char Radio::getLock(){
-   return lock; 
+bool Radio::getNB(){
+    return _nb;
 }
 
-char Radio::getMultiFunc(){
-   return multiFunc; 
+unsigned short Radio::getToneType(){
+    return 0;
 }
 
-char Radio::getNB(){
-   return nb; 
+unsigned short Radio::getTone(){
+    return 0;
 }
 
-char Radio::getTone(){
-   return tone; 
+bool Radio::getSplitOn(){
+    return _split;
 }
 
-char Radio::getTune(){
-   return tune; 
+void Radio::PTTDown(){
+    unsigned int head_buttons = 0;
+    sendButton(head_buttons);
 }
 
-char Radio::getSplit(){
-   return split; 
+void Radio::PTTUp(){
+    unsigned int head_buttons = 0;
+    head_buttons |= (1<<12);
+    sendButton(head_buttons);
 }
 
-char Radio::AGC(unsigned short recvLCSA[]){
-    char tempAGC;
-    if(recvLCSA[4] & (1<<4))
-        tempAGC = 'S';
-    else if(recvLCSA[31] & (1<<0))
-        tempAGC = 'F';
-    else
-        tempAGC = 'E';
-
-    return tempAGC;
+void Radio::setRadVol(unsigned short vol){
+    if(vol <= 255)
+        _radVol = vol;
+    if(abs(_radVol-_catVol)>2)
+        _cVolRcv = false;
 }
 
-unsigned int Radio::getDigit_1(int first, int second){
-    // A C D E G HKMNPRSTUXY
-    //1514131211109876543210
-    //TSKAyGUHxDPCERMN
-    unsigned int digit = 0;
-
-    //T
-    if(first & (1<<0))
-        digit |= (1<<3);
-    //S
-    if(first & (1<<1))
-        digit |= (1<<4);
-    //K
-    if(first & (1<<2))
-        digit |= (1<<9);
-    //A    
-    if(first & (1<<3))
-        digit |= (1<<15);    
-    //Y
-    if(first & (1<<4))
-        digit |= (1<<0);
-    //G
-    if(first & (1<<5))
-        digit |= (1<<11);
-    //U
-    if(first & (1<<6))
-        digit |= (1<<2);
-    //H
-    if(first & (1<<7))
-        digit |= (1<<10);    
-    //X
-    if(second & (1<<0))
-        digit |= (1<<1);
-    //D
-    if(second & (1<<1))
-        digit |= (1<<13);
-    //P
-    if(second & (1<<2))
-        digit |= (1<<6);
-    //C
-    if(second & (1<<3))
-        digit |= (1<<14);
-    //E
-    if(second & (1<<4))
-        digit |= (1<<12);
-    //R
-    if(second & (1<<5))
-        digit |= (1<<5);
-    //M
-    if(second & (1<<6))
-        digit |= (1<<8);
-    //N
-    if(second & (1<<7))
-        digit |= (1<<7);
-
-    return digit;
+void Radio::setRadIT(int IT){
+    if(IT <= 1200 || IT >= -1200)
+        _radITVal = IT;
+    if(abs(_radITVal-_catIT)>2)
+        _cITRcv = false;
 }
 
-unsigned int Radio::getDigit_2(int first, int second){
-    // A C D E G HKMNPRSTUXY
-    //1514131211109876543210
-    //ERMNyDPCaGUHTSKA
-    unsigned int digit = 0;
-
-    //E
-    if(first & (1<<0))
-        digit |= (1<<12);
-    //R
-    if(first & (1<<1))
-        digit |= (1<<5);
-    //M
-    if(first & (1<<2))
-        digit |= (1<<8);
-    //N    
-    if(first & (1<<3))
-        digit |= (1<<7);
-    //Y
-    if(first & (1<<4))
-        digit |= (1<<0);
-    //D
-    if(first & (1<<5))
-        digit |= (1<<13);
-    //P
-    if(first & (1<<6))
-        digit |= (1<<6);
-    //C
-    if(first & (1<<7))
-        digit |= (1<<14);
-    //A    
-    if(second & (1<<0))
-        digit |= (1<<15);    
-    //G
-    if(second & (1<<1))
-        digit |= (1<<11);
-    //U
-    if(second & (1<<2))
-        digit |= (1<<2);
-    //H
-    if(second & (1<<3))
-        digit |= (1<<10);    
-    //T
-    if(second & (1<<4))
-        digit |= (1<<3);
-    //S
-    if(second & (1<<5))
-        digit |= (1<<4);
-    //K
-    if(second & (1<<6))
-        digit |= (1<<9);
-    //A    
-    if(second & (1<<7))
-        digit |= (1<<15);    
-
-    return digit;
+void Radio::setRadIF(int IF){
+    if(IF <= 1500 || IF >= -1500)
+        _radIFVal = IF;
+    if(abs(_radIFVal-_catIF)>2)
+        _cIFRcv = false;
 }
 
-unsigned int Radio::getDigit_3(int first, int second){
-    // A C D E G HKMNPRSTUXY
-    //1514131211109876543210
-    //FRMNEDPCxGUHTSKA
-    unsigned int digit = 0;
-
-    //E
-    if(first & (1<<0))
-        digit |= (1<<12);
-    //R
-    if(first & (1<<1))
-        digit |= (1<<5);
-    //M
-    if(first & (1<<2))
-        digit |= (1<<8);
-    //N    
-    if(first & (1<<3))
-        digit |= (1<<7);
-    //E
-    if(first & (1<<4))
-        digit |= (1<<12);
-    //D
-    if(first & (1<<5))
-        digit |= (1<<13);
-    //P
-    if(first & (1<<6))
-        digit |= (1<<6);
-    //C
-    if(first & (1<<7))
-        digit |= (1<<14);
-    //X
-    if(second & (1<<0))
-        digit |= (1<<1);
-    //G
-    if(second & (1<<1))
-        digit |= (1<<11);
-    //U
-    if(second & (1<<2))
-        digit |= (1<<2);
-    //H
-    if(second & (1<<3))
-        digit |= (1<<10);    
-    //T
-    if(second & (1<<4))
-        digit |= (1<<3);
-    //S
-    if(second & (1<<5))
-        digit |= (1<<4);
-    //K
-    if(second & (1<<6))
-        digit |= (1<<9);
-    //A    
-    if(second & (1<<7))
-        digit |= (1<<15);    
-
-    return digit;
+void Radio::setRadSquelch(unsigned short squelch){
+    if(squelch <= 255)
+        _radSquelch = squelch;
+    if(abs(_radSquelch-_catSquelch)>2)
+        _cSqRcv = false;
 }
 
-unsigned int Radio::getDigit_4(int first, int second){
-    // A C D E G HKMNPRSTUXY
-    //1514131211109876543210
-    //ERMNyDPCxGUHTSKA
-    unsigned int digit = 0;
-
-    //E
-    if(first & (1<<0))
-        digit |= (1<<12);
-    //R
-    if(first & (1<<1))
-        digit |= (1<<5);
-    //M
-    if(first & (1<<2))
-        digit |= (1<<8);
-    //N    
-    if(first & (1<<3))
-        digit |= (1<<7);
-    //Y
-    if(first & (1<<4))
-        digit |= (1<<0);
-    //D
-    if(first & (1<<5))
-        digit |= (1<<13);
-    //P
-    if(first & (1<<6))
-        digit |= (1<<6);
-    //C
-    if(first & (1<<7))
-        digit |= (1<<14);
-    //X    
-    if(second & (1<<0))
-        digit |= (1<<1);
-    //G
-    if(second & (1<<1))
-        digit |= (1<<11);
-    //U
-    if(second & (1<<2))
-        digit |= (1<<2);
-    //H
-    if(second & (1<<3))
-        digit |= (1<<10);    
-    //T
-    if(second & (1<<4))
-        digit |= (1<<3);
-    //S
-    if(second & (1<<5))
-        digit |= (1<<4);
-    //K
-    if(second & (1<<6))
-        digit |= (1<<9);
-    //A    
-    if(second & (1<<7))
-        digit |= (1<<15);    
-
-    return digit;
+void Radio::sendSWDV(){
+    sendSWD(createSWDV);
 }
 
+void Radio::sendSWD(String SWD){
+  for(int i = 0; i < SWD.length(); i++)
+      _serial.write(SWD[i]);
+}
 
-char Radio::lcdToChar(unsigned int lcd){
-    //Need digits, don't care about LCD X and Y (decimal point and arrow)
-    //65532 = 11111111 11111100
-    unsigned int mask = 65532;
-    lcd &= mask;
+void Radio::sendButton(unsigned int buttons){
+  sendSWD(createSWDS(buttons));  
+}
 
-    switch(lcd){
-        case 64648:
-            return '0';
-        case 24576:
-            return '1';
-        case 55364:
-            return '2';
-        case 61508:
-            return '3';
-        case 25668:
-            return '4';
-        case 46144:
-            return '5';
-        case 48196:
-            return '6';
-        case 57344:
-            return '7';
-        case 64580:
-            return '8';
-        case 62532:
-            return '9';
-        default:
-            return 'Z';
-
+String Radio::createSWDS(unsigned int bitRegister){
+    String SWDS = "SWDS";
+    for(int i = 0; i < 7; i++){
+        SWDS += asciiFromInt((bitRegister >> ((6-i)*4)) & 15);
     }
+    SWDS += "00100\r\n";
+    return SWDS;
+}
 
+String Radio::createSWDV(){
+    String SWDV = "SWDV";
+    unsigned short sendIT, sendIF, sendSquelch, sendVol;
+
+    //Check if user has turned knobs ot override the CAT values
+    if(abs(_head.getIT() - _radIT) > 2)
+        _cITRcv = false;
+    if(abs(_head.getIF() - _radIF) > 2)
+        _cIFRcv = false;
+    if(abs(_head.getSquelch() - _radSquelch) > 2)
+        _cSqRcv = false;
+    if(abs(_head.getVol() - _radVol) > 2)
+        _cVolRcv = false;
+
+
+    sendIT = _cITRcv ? _catIT : _radIT;
+    sendIF = _cIFRcv ? _catIF : _radIF;
+    sendSquelch = _cSqRcv ? _catSquelch : _radSquelch;
+    sendVol = _cVolRcv ? _catVol : _radVol;
+    
+    SWDV += sendIT >> 4;
+    SWDV += sendIT & 15;
+    SWDV += sendIF >> 4;
+    SWDV += sendIF & 15;
+    SWDV += sendSquelch >> 4;
+    SWDV += sendSquelch & 15;
+    SWDV += sendVol >> 4;
+    SWDV += sendVol & 15;
+
+    SWDV += "00100\r\n";
+    return SWDV;
+}
+
+char Radio::asciiFromInt(int x){
+    if(x < 10)
+        return x + '0';
+    else if (x >= 10 && x < 16)
+        return x + 55;
+    else
+        return 0;
 }
 

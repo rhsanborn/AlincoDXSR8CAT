@@ -11,17 +11,15 @@
 class CAT
 {
   public:
-    CAT(HardwareSerial& serial, RadioHead& head);
+    CAT(HardwareSerial& serial, Radio& radio);
     void processSerial(char serData);
     String qAFGain();
     void sAFGain(String gain);
-    String qRadioInfo();
+    //String qRadioInfo();
   private:
     HardwareSerial& _serial;
-    RadioHead& _head;
+    Radio& _radio;
     String serIn;
-    void PTTDown();
-    void PTTUp();
     int intFromAscii(char ascii);
 };
 #endif

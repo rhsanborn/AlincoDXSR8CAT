@@ -1,8 +1,8 @@
 #include "CAT.h"
 
 
-CAT::CAT(HardwareSerial& serial, RadioHead& head)
-  : _serial(serial), _head(head)
+CAT::CAT(HardwareSerial& serial, Radio& radio)
+  : _serial(serial), _radio(radio)
 {
   serIn = "";
 }
@@ -10,17 +10,21 @@ CAT::CAT(HardwareSerial& serial, RadioHead& head)
 void CAT::processSerial(char serData){
   serIn += serData;
 
-  if(serData == '\n'){
+  if(serData == ';'){
+
+    //PTTDown and Up Commands
     if(serIn[0] == 'D' && serIn[1] == 'N'){
-      PTTDown();
+      _radio.PTTDown();
       serIn = "";
       return;
     }
     if(serIn[0] == 'U' && serIn[1] == 'P'){
-      PTTUp();
+      _radio.PTTUp();
       serIn = "";
       return;
     }
+
+    //AFGain Command
     if(serIn[0] == 'A' && serIn[1] == 'G'){
       //Sanity check, this should always be 0
       if(serIn[2] == '0'){
@@ -41,19 +45,17 @@ void CAT::processSerial(char serData){
 //0,1,2,3,4,5,6,7,8  ,10,11,12,13 ,14,15,16,17,18   ,19 ,20  ,21,22 ,23 ,24  ,25,26,27  ,28
 //3,2,1,0,7,6,5,4,ENT,* ,9 ,8 ,PTT,_ ,_ ,_ ,RF,M/KHz,V/M,MODE,MF,KEY,RIT,FUNC,_ ,_ ,DOWN,UP
 
-void CAT::PTTDown(){
-  unsigned int head_buttons = 0;
-  head_buttons |= (1<<12);
-  _head.sendButton(head_buttons);
-}
-
-void CAT::PTTUp(){
-  unsigned int head_buttons = 0;
-  _head.sendButton(head_buttons);
-}
-
 String CAT::qAFGain(){
-  return "true";
+    String gainResp = "";
+    int gain = _radio.getVol();
+
+    for(int i = 0; i < 3; i++){
+        gainResp = gainResp + (gain % 10);
+        gain /= 10;
+    }
+
+    gainResp = "AG0" + gainResp;
+    return gainResp;
 }
 
 void CAT::sAFGain(String serIn){
@@ -61,7 +63,9 @@ void CAT::sAFGain(String serIn){
 
     for(int i = 3; i < 6; i++)
         gain = gain * 10 + intFromAscii(serIn[i]);
-    _head.setVol(gain);
+
+    if(gain <= 255)
+        _radio.setVol(gain);
 }
 
 int CAT::intFromAscii(char ascii){
@@ -71,9 +75,10 @@ int CAT::intFromAscii(char ascii){
         return ascii - 55;
 }
 
+/*
 String CAT::qRadioInfo(){
     String info = "IF";
     
     String    
 
-}
+}*/

@@ -4,16 +4,12 @@
 
 #include "RadioHead.h"
 
-RadioHead::RadioHead(HardwareSerial& serial)
-  : _serial(serial)
+RadioHead::RadioHead()
 {
   _phyHeadSWD = "";
 }
 
 void RadioHead::processSerial(char sendData){
-
-  //Act as passthrough until we get to a command.
-  //Don't want to interupt instructions mid-cycle.
 
   _phyHeadSWD += sendData;
   if(sendData == '\n'){
@@ -22,23 +18,14 @@ void RadioHead::processSerial(char sendData){
     if(_phyHeadSWD[1] != 'S')
       sendSWD(_phyHeadSWD);
     if(_phyHeadSWD[3] == 'S')
-      _phyHeadSWD = validateSWDS( _phyHeadSWD);
+      _phyHeadSWD = processSWDS( _phyHeadSWD);
     if(_phyHeadSWD[3] == 'R')
-      _phyHeadSWD = validateSWDR( _phyHeadSWD);
+      _phyHeadSWD = processSWDR( _phyHeadSWD);
     if(_phyHeadSWD[3] == 'V')
-      _phyHeadSWD = radioSWDV( _phyHeadSWD);
+      _phyHeadSWD = processSWDV( _phyHeadSWD);
 
-     _phyHeadSWD = "";
+    _phyHeadSWD = "";
   }
-}
-
-void RadioHead::sendSWD(String SWD){
-  for(int i = 0; i < SWD.length(); i++)
-      _serial.write(SWD[i]);
-}
-
-void RadioHead::sendButton(unsigned int buttons){
-  sendSWD(createSWDS(buttons));  
 }
 
 int RadioHead::intFromAscii(char ascii){
@@ -48,97 +35,46 @@ int RadioHead::intFromAscii(char ascii){
         return ascii - 55;
 }
 
-char RadioHead::asciiFromInt(int x){
-    if(x < 10)
-        return x + '0';
-    else if (x >= 10 && x < 16)
-        return x + 55;
-    else
-        return 0;
-}
-
-String RadioHead::createSWDS(unsigned int bitRegister){
-    String SWDS = "SWDS";
-    for(int i = 0; i < 7; i++){
-        SWDS += asciiFromInt((bitRegister >> ((6-i)*4)) & 15);
-    }
-    SWDS += "00100\r\n";
-    return SWDS;
-}
-
-String RadioHead::createSWDV(){
-    String SWDV = "SWDV";
-    unsigned short sendRIT, sendIF, sendSquelch, sendVol;
-
-    sendRIT = cRITRcv ? catRIT : radRIT;
-    sendIF = cIFRcv ? catIF : radIF;
-    sendSquelch = cSqRcv ? catSquelch : radSquelch;
-    sendVol = cVolRcv ? catVol : radVol;
-    
-    SWDV += sendRIT >> 4;
-    SWDV += sendRIT & 15;
-    SWDV += sendIF >> 4;
-    SWDV += sendIF & 15;
-    SWDV += sendSquelch >> 4;
-    SWDV += sendSquelch & 15;
-    SWDV += sendVol >> 4;
-    SWDV += sendVol & 15;
-
-    SWDV += "00100\r\n";
-    return SWDV;
-}
-
-String RadioHead::validateSWDS(String SWDS){
+String RadioHead::processSWDS(String SWDS){
   //SWDS000000000100
   return SWDS;  
 }
 
-String RadioHead::validateSWDR(String SWDR){
+String RadioHead::processSWDR(String SWDR){
   //SWDR800100
   return SWDR;
 }
 
-String RadioHead::radioSWDV(String SWDV){
+String RadioHead::processSWDV(String SWDV){
   //SWDV000000000100
-  radRIT = (intFromAscii(SWDV[4])<<4) | intFromAscii(SWDV[5]);
-  if(abs(radRIT-catRIT)>2)
-    cRITRcv = false;
+  radIT = (intFromAscii(SWDV[4])<<4) | intFromAscii(SWDV[5]);
   radIF = (intFromAscii(SWDV[6])<<4) | intFromAscii(SWDV[7]);
-  if(abs(radIF-catIF)>2)
-    cIFRcv = false;
   radSquelch = (intFromAscii(SWDV[8])<<4) | intFromAscii(SWDV[9]);
-  if(abs(radSquelch-catSquelch)>2)
-    cSqRcv = false;
   radVol = (intFromAscii(SWDV[10])<<4) | intFromAscii(SWDV[11]);
-  if(abs(radVol-catVol)>2)
-    cVolRcv = false;
+  
+  /*
+  radio.setRadVol(radVol);
+  radio.setRadIT(radIT);
+  radio.setRadIF(radIF);
+  radio.setRadSquelch(radSquelch);
+  */
+
+  radio.sendSWDV();
   return SWDV;
 }
 
-int RadioHead::getVol(){
+unsigned short RadioHead::getVol(){
   return radVol;
 }
 
-void RadioHead::setRIT(unsigned short rit){
-  cRITRcv = true;
-  catRIT = rit;
-  sendSWD(createSWDV());
+int RadioHead::getIF(){
+    return radIF;
 }
 
-void RadioHead::setIF(unsigned short IF){
-  cIFRcv = true;
-  catIF = IF;
-  sendSWD(createSWDV());
+int RadioHead::getIT(){
+    return radIT;
 }
 
-void RadioHead::setSquelch(unsigned short squelch){
-  cSqRcv = true;
-  catSquelch = squelch;
-  sendSWD(createSWDV());
-}
-
-void RadioHead::setVol(unsigned short vol){
-  cVolRcv = true;
-  catVol = vol;
-  sendSWD(createSWDV());
+unsigned short RadioHead::getSquelch(){
+    return radSquelch;
 }
