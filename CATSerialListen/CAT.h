@@ -6,7 +6,7 @@
 #define CAT_h
 
 #include <Arduino.h>
-#include "RadioHead.h"
+#include "Radio.h"
 
 class CAT
 {
@@ -21,5 +21,6 @@ class CAT
     Radio& _radio;
     String serIn;
     int intFromAscii(char ascii);
+    String padZeros(String string, int zeros);
 };
 #endif

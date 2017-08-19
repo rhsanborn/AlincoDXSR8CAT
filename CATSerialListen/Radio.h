@@ -5,34 +5,42 @@
 #ifndef Radio_h
 #define Radio_h
 
+#include "RadioSerialHandler.h"
 #include <Arduino.h>
 
 class Radio
 {
   public:
-    Radio(HardwareSerial& radioSerial);
-    void processLCSA(unsigned short recvLCSA[]);   
+    Radio(HardwareSerial& radioSerial, RadioSerialHandler& serialHandler);
+    //Radio(HardwareSerial& radioSerial);
     void sendSWDV();
+    void sendSWD(String SWD);
+    String createSWDS(unsigned long bitRegister);
     
-    int getFreq();
+    long getFreq();
     int getVol();
-    void setVol(unsigned short vol);
-    void setRITOn();
-    void setXitOn();
-    void setITVal(int it);
     bool getRitOn();
     bool getXitOn();
     int getITVal();
-    void setIFVal(int IF);
-    void setIFOn();
     int getIFVal();
     bool getIFOn();
-    void setSquelch(unsigned short squelch);
+    char getMode();
     int getSquelch();
     int getRFGain();
     char getAGC();
     bool getNarrow();
     bool getNB();
+
+    void setSquelch(unsigned short squelch);
+    void setIFVal(int IF);
+    void setIFOn();
+    void setVol(unsigned short vol);
+    void setRitOn(bool ritOn);
+    void setXitOn(bool xitOn);
+    void setITVal(int it);
+    void setNBOn(bool nbOn);
+    void setFreq(long freq);
+
     unsigned short getToneType();
     unsigned short getTone();
     bool getSplitOn();
@@ -42,23 +50,37 @@ class Radio
     void setRadIF(int IF);
     void setRadSquelch(unsigned short squelch);
 
+    void setRadFreq(long freq);
+    void setRadRFGain(short rfGain);
+    void setRadAGC(char agc);
+    void setRadFunc(bool func);
+    void setRadLock(bool lock);
+    void setRadMultiFunc(bool mfunc);
+    void setRadNB(bool nb);
+    void setRadTone(bool tone);
+    void setRadTune(bool tune);
+    void setRadSplit(bool split);
+    void setRadXIT(bool xit);
+    void setRadRIT(bool rit);
+
+    void Test();
     void PTTDown();
     void PTTUp();
     
-
   private:
-    void sendSWD(String SWD);
-    void sendButton(unsigned int buttons);
+    void sendButton(int button);
+    void sendFuncButton(int button);
     String createSWDV();
-    String createSWDS(unsigned int bitRegister);
 
     HardwareSerial& _radioSerial;
-    RadioHead& _head;
+    RadioSerialHandler& _serialHandler;
 
-    char asciiFromInt(int x)
+    short comDelay = 30;
+
+    char asciiFromInt(int x);
     char lcdToChar(unsigned int lcd);
     bool _ready;
-    int _freq;
+    long _freq;
     char _mode[3];
     short _rfGain;
     char _agc;
@@ -66,7 +88,7 @@ class Radio
     bool _lock;
     bool _multiFunc;
     bool _nar;
-    bool _nb;
+    bool _nbOn;
     bool _tone;
     bool _tune;
     bool _split;
@@ -77,16 +99,14 @@ class Radio
     bool _ifOn;
     int _radIFVal;
     unsigned short _radSquelch;
-    bool _split;
-    unsigned short _catIT = 0;
+    int _catIT = 0;
     bool _cITRcv = false;
-    unsigned short _catIF = 0;
+    int _catIF = 0;
     bool _cIFRcv = false;
     unsigned short _catSquelch = 0;
     bool _cSqRcv = false;
     unsigned short _catVol = 0;
     bool _cVolRcv = false;
-
 
 };
 

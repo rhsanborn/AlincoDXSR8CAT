@@ -4,9 +4,21 @@
 
 #include "RadioScreen.h"
 
-RadioScreen::RadioScreen(){
+
+RadioScreen::RadioScreen(Radio& radio, HardwareSerial& comSerial)
+  : _radio(radio), _comSerial(comSerial)
+{
 
 }
+
+/*
+RadioScreen::RadioScreen(Radio& radio)
+  : _radio(radio)
+{
+
+}
+
+*/
 
 void RadioScreen::processLCSA(unsigned short recvLCSA[]){
     char digits[7];
@@ -19,54 +31,71 @@ void RadioScreen::processLCSA(unsigned short recvLCSA[]){
     digits[6] = lcdToChar(getDigit_4(recvLCSA[22],recvLCSA[23]));
 
     bool isFreq = true;
-    String tempFreq = "";
+    long tempFreq = 0;
     for(int i = 0; i < 7; i++){
         int value = digits[i]-'0';
-        tempFreq += digits[i];
-        if(value < 0 || value > 9)
+        tempFreq = (tempFreq * 10) + digits[i]-'0';
+        if(value < 0 || value > 9){
             isFreq = false;
+        }
     }
 
-    if(isFreq)
-        _freq = tempFreq;
+    tempFreq = (tempFreq * 10);
 
-    _rfGain = RFPower(recvLCSA);
-    _agc = AGC(recvLCSA);
+    if(isFreq)
+        _radio.setRadFreq(tempFreq);
+
+    _radio.setRadRFGain(RFPower(recvLCSA));
+    _radio.setRadAGC(AGC(recvLCSA));
 
     if(recvLCSA[9] & (1<<4))
-        _func = true;
+        _radio.setRadFunc(true);
     else
-        _func = false;
+        _radio.setRadFunc(false);
+
     if(recvLCSA[11] & (1<<4))
-        _lock = true;
+        _radio.setRadLock(true);
     else
-        _lock = false;
+        _radio.setRadLock(false);
+
     if(recvLCSA[29] & (1<<0))
-        _multiFunc = true;
+        _radio.setRadMultiFunc(true);
     else
-        _multiFunc = false;
+        _radio.setRadMultiFunc(false);
+
     if(recvLCSA[26] & (1<<4))
-        _nb = true;
+        _radio.setRadNB(true);
     else
-        _nb = false;   
+        _radio.setRadNB(false);   
+    
     if(recvLCSA[23] & (1<<0))
-        _tone = true;
+        _radio.setRadTone(true);
     else
-        _tone = false;
+        _radio.setRadTone(false);
+
     if(recvLCSA[6] & (1<<4))
-        _tune = true;
+        _radio.setRadTune(true);
     else
-        _tune = false;
+        _radio.setRadTune(false);
+
     if(recvLCSA[6] & (1<<6))
-        _split = true;
+        _radio.setRadSplit(true);
     else
-        _split = false;
+        _radio.setRadSplit(false);
+
+    if(recvLCSA[20] & (1<<6))
+        _radio.setRadXIT(true);
+    else
+        _radio.setRadXIT(false);
+
+    if(recvLCSA[20] & (1<<7))
+        _radio.setRadRIT(true);
+    else
+        _radio.setRadRIT(false);
+
+    _radio.setRadIT(ITVal(recvLCSA[20],recvLCSA[21]));
 
 } 
-
-int RadioScreen::getFreq(){
-    return _freq;
-}
 
 int RadioScreen::RFPower(unsigned short recvLCSA[]){
     if(recvLCSA[28] & (1<<4))
@@ -77,42 +106,6 @@ int RadioScreen::RFPower(unsigned short recvLCSA[]){
         return -10;
 
     return -20;
-}
-
-int RadioScreen::getRFGain(){
-    return _rfGain;
-}
-
-char RadioScreen::getAGC(){
-   return _agc; 
-}
-
-char RadioScreen::getFunc(){
-   return _func; 
-}
-
-char RadioScreen::getLock(){
-   return _lock; 
-}
-
-char RadioScreen::getMultiFunc(){
-   return _multiFunc; 
-}
-
-char RadioScreen::getNB(){
-   return _nb; 
-}
-
-char RadioScreen::getTone(){
-   return _tone; 
-}
-
-char RadioScreen::getTune(){
-   return _tune; 
-}
-
-char RadioScreen::getSplit(){
-   return _split; 
 }
 
 char RadioScreen::AGC(unsigned short recvLCSA[]){
@@ -363,8 +356,14 @@ unsigned int RadioScreen::getDigit_4(int first, int second){
 char RadioScreen::lcdToChar(unsigned int lcd){
     //Need digits, don't care about LCD X and Y (decimal point and arrow)
     //65532 = 11111111 11111100
+    //_comSerial.print("LCD out: ");
+    //_comSerial.println(lcd);
+    
     unsigned int mask = 65532;
     lcd &= mask;
+
+    //_comSerial.print("After mask: ");
+    //_comSerial.println(lcd);
 
     switch(lcd){
         case 64648:
@@ -377,7 +376,7 @@ char RadioScreen::lcdToChar(unsigned int lcd){
             return '3';
         case 25668:
             return '4';
-        case 46144:
+        case 46148:
             return '5';
         case 48196:
             return '6';
@@ -387,6 +386,8 @@ char RadioScreen::lcdToChar(unsigned int lcd){
             return '8';
         case 62532:
             return '9';
+        case 0:
+            return '0';
         default:
             return 'Z';
 
@@ -394,5 +395,108 @@ char RadioScreen::lcdToChar(unsigned int lcd){
 
 }
 
+short RadioScreen::ITVal(unsigned short first, unsigned short second){
+    //A  B D G H I J K L M N
+    //10 9 8 7 6 5 4 3 2 1 0
+    //
+    //
+    //2  1  B  A  
+    /* From Josh Myers work
+    txit: TTT    1  AAAB   GGGG
+                222 A  B   M  H
+                 1  A  B   MLLH
+    rxit: RRR       A  B   K  I
+                    AAAB N JJJJ
+    */
 
+    unsigned int digit = 0;
+    int value;
+
+    //B
+    if(first & (1<<2))
+        digit |= (1<<9);
+    //A    
+    if(first & (1<<3))
+        digit |= (1<<10);
+    //G
+    if(second & (1<<0))
+        digit |= (1<<7);
+    //H
+    if(second & (1<<1))
+        digit |= (1<<13);
+    //I
+    if(second & (1<<2))
+        digit |= (1<<6);
+    //J
+    if(second & (1<<3))
+        digit |= (1<<14);
+    //M    
+    if(second & (1<<4))
+        digit |= (1<<1);
+    //L
+    if(second & (1<<5))
+        digit |= (1<<11);
+    //K
+    if(second & (1<<6))
+        digit |= (1<<2);
+    //N - decimal - don't care
+    //if(second & (1<<7))
+        //digit |= (1<<10);    
+
+    //Mask only uses the components that make up the 
+    //second digit, no decimal point
+    //A  B D G H I J K L M N
+    //10 9 8 7 6 5 4 3 2 1 0
+    //       1 1 1 1 1 1 1 0
+
+    unsigned int mask = 254;
+
+    switch(digit & mask){
+        case 250:
+            value = 0;
+            break;
+        case 96:
+            value = 1;
+            break;
+        case 220:
+            value = 2;
+            break;
+        case 244:
+            value = 3;
+            break;
+        case 102:
+            value = 4;
+            break;
+        case 182:
+            value = 5;
+            break;
+        case 190:
+            value = 6;
+            break;
+        case 224:
+            value = 7;
+            break;
+        case 254:
+            value = 8;
+            break;
+        case 246:
+            value = 9;
+            break;
+        default:
+            value = 0;
+            break;
+    }
+    
+    //A - Which would indicate a 0, if
+    //not A, then it's a 1.
+    if(!(first & (1<<3)))
+        value = value + 10;
+
+    value = value * 100;
+
+    //1 - Indicates plus sign, if not 
+    //lit, then value is negative
+    if(!(first & (1<<1)))
+        value = -value;
+}
 

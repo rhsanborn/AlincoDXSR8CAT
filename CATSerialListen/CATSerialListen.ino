@@ -1,110 +1,105 @@
 #include <Arduino.h>
 #include "Radio.h"
 #include "RadioHead.h"
+#include "RadioScreen.h"
+#include "RadioSerialHandler.h"
 #include "CAT.h"
 
 char serReadData = 0;
 
 const int strLength = 90;
-const int lenSWDS = 18;
-const int numKeys = 23;
+//const int lenSWDS = 18;
+//const int numKeys = 23;
 
 char ser[strLength + 1];
 int serLoc = 0;
-
 int ser2[strLength + 1];
 int ser2Loc = 0;
 
 unsigned short lcsa[34];
 
-Radio radio;
-RadioHead head(Serial2);
-CAT cat(Serial,head);
+RadioSerialHandler serialHandler(Serial2, Serial);
+Radio radio(Serial2, serialHandler);
+//Radio radio(Serial2);
+RadioHead head(radio);
+//RadioScreen screen(radio);
+RadioScreen screen(radio, Serial);
+CAT cat(Serial,radio);
 
 unsigned long prevMillis = 0;
 int interval = 3000;
 
-char recvSWDS[lenSWDS] = {'S','W','D','S','0','0','0','0','0','0','0','0','0','1','0','0','\r','\n'};
-char SWDSToSend[lenSWDS] = {'S','W','D','S','0','0','0','0','0','0','0','0','0','1','0','0','\r','\n'};
-char blankSWDS[lenSWDS] = {'S','W','D','S','0','0','0','0','0','0','0','0','0','1','0','0','\r','\n'};
-
-//'MF','1','2','3','4','5','6','7','8','9','*','0','ENT','FUNC','RIT','KEY','MODE','V/M','M/KHz','RF','UP','DOWN','PTTDn','PTTUp'
-int keys[] = {72,34,33,32,43,42,41,40,51,50,49,35,48,75,74,73,67,66,65,64,83,82,56};
-bool keysPressed[numKeys];
-
-
 void setup() {
   // put your setup code here, to run once:
 
-  // start serial port at 9600 bps:
+  //Start serial port at 38400 bps:
   //Serial is the computer
   Serial.begin(38400);
   //Serial1 is the head of the radio
   Serial1.begin(38400);
   //Serial2 is the main body of the radio
   Serial2.begin(38400);
-
-  for(int i = 0; i < numKeys; i++)
-    keysPressed[i] = false;
-
-  Serial.println("Setup complete. Listening.");
 }
 
 void loop() {
 
-  unsigned long currentMillis = millis();
-
-  if (Serial2.available() > 0) {
-    serReadData = Serial2.read();
-    Serial1.write(serReadData);
-
-    ser2[ser2Loc] = serReadData;
-    ser2Loc++;
-    ser2[ser2Loc] = 0;
-    //Serial.print(serReadData);
-    
-    if(ser2[ser2Loc - 1] == 'A' && ser2[ser2Loc - 2] == 'S' && 
-      ser2[ser2Loc - 3] == 'C' &&ser2[ser2Loc - 4] == 'L'){
+    unsigned long currentMillis = millis();
+  
+    if (Serial2.available() > 0) {
+      serReadData = Serial2.read();
+      Serial1.write(serReadData);
+  
+      ser2[ser2Loc] = serReadData;
+      ser2Loc++;
+      ser2[ser2Loc] = 0;
       
-      String outstring = "";
-      
-      for(int i = 0; i < 34; i++)
-        lcsa[i] = ser2[i];
-
-      radio.processLCSA(lcsa);
-
-      if(currentMillis - prevMillis > interval) {
-        // save the last time you blinked the LED 
-        prevMillis = currentMillis;
+      if(ser2[ser2Loc - 1] == 'A' && ser2[ser2Loc - 2] == 'S' && 
+        ser2[ser2Loc - 3] == 'C' &&ser2[ser2Loc - 4] == 'L'){
         
-        Serial.println("");
-        for(int i = 0; i < 34; i++){
-          Serial.print(lcsa[i]);
-          Serial.print(" ");
+        String outstring = "";
+        
+        for(int i = 0; i < 34; i++)
+          lcsa[i] = ser2[i];
+  
+        screen.processLCSA(lcsa);
+  
+        if(currentMillis - prevMillis > interval) {
+          // save the last time you blinked the LED 
+          prevMillis = currentMillis;
+
+          /*
+          Serial.println("");
+          for(int i = 0; i < 34; i++){
+            Serial.print(lcsa[i]);
+            Serial.print(" ");
+          }
+          Serial.println("");
+          String freq = String(radio.getFreq() * 10);
+          freq = padZeros(freq, 11);
+          Serial.println(freq);
+          Serial.println(radio.getRFGain());
+          Serial.println(radio.getAGC());
+          Serial.println((radio.getNB() ? "true" : "false"));
+          //Serial.println((radio.getTone() ? "true" : "false"));
+          //Serial.println((radio.getTune() ? "true" : "false"));
+          Serial.println("Volume: ");
+          Serial.println(head.getVol());
+          Serial.println("Volume _rad: ");
+          Serial.println(radio.getVol());
+          */
         }
-        Serial.println("");
-        Serial.println(radio.getFreq());
-        Serial.println(radio.getRFGain());
-        Serial.println(radio.getAGC());
-        Serial.println((radio.getFunc() ? "true" : "false"));
-        Serial.println((radio.getLock() ? "true" : "false"));
-        Serial.println((radio.getMultiFunc() ? "true" : "false"));
-        Serial.println((radio.getNB() ? "true" : "false"));
-        Serial.println((radio.getTone() ? "true" : "false"));
-        Serial.println((radio.getTune() ? "true" : "false"));
-        Serial.println("Volume: ");
-        Serial.print(head.getVol());
+          
+        ser2Loc = 4;
+        ser2[0] = 'L';
+        ser2[1] = 'C';
+        ser2[2] = 'S';
+        ser2[3] = 'A';
+        ser2[4] = 0;                              
       }
-        
-      ser2Loc = 4;
-      ser2[0] = 'L';
-      ser2[1] = 'C';
-      ser2[2] = 'S';
-      ser2[3] = 'A';
-      ser2[4] = 0;                              
     }
-  }
 
+    if(serialHandler.readyToSend())
+        serialHandler.sendNext();
   
     while(Serial1.available() > 0){
         serReadData = Serial1.read();
@@ -115,4 +110,14 @@ void loop() {
         serReadData = Serial.read();
         cat.processSerial(serReadData);  
     }
+}
+
+String padZeros(String string, int zeros){
+    int len = string.length();
+    if(len > zeros)
+        return string;
+    //return string;
+    for(int i = 0; i <= (zeros - len); i++)
+        string = "0" + string;    
+    return string;
 }

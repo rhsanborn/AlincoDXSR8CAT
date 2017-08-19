@@ -2,18 +2,19 @@
   Radio.h - Status of xcver side of the radio
 */
 
-#ifndef Radio_h
-#define Radio_h
+#ifndef RadioHead_h
+#define RadioHead_h
 
+#include "Radio.h"
 #include <Arduino.h>
 
 class RadioHead
 {
   public:
-    RadioHead();
+    RadioHead(Radio& radio);
     String processSWDS(String SWDS);
     String processSWDR(String SWDR);
-    String radioSWDV(String SWDV);
+    String processSWDV(String SWDV);
     void processSerial(char sendData);
     unsigned short getVol();
     int getIF();
@@ -24,6 +25,7 @@ class RadioHead
   private:
     int intFromAscii(char ascii);
 
+    Radio& _radio;
     String _phyHeadSWD = "";
     unsigned int head_buttons = 0;
     unsigned int send_buttons = 0;
