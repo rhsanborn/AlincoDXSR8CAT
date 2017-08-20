@@ -176,6 +176,13 @@ void Radio::setNBOn(bool nbOn){
 }
 
 void Radio::setFreq(long freq){
+    /*
+    int freqDiff = freq - _freq;
+    if(abs(freqDiff) < 3000){
+        _serialHandler.dialChange(freqDiff);
+        return;
+    }*/
+
     int mhz = freq / 1000000;
 
     switch(mhz){

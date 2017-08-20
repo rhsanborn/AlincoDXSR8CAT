@@ -16,7 +16,11 @@ void CAT::processSerial(char serData){
 
     //Test command to poke at radio.
     if(serIn[0] == 'T' && serIn[1] == 'S'){
-      _radio.Test();
+      long freq = 14073000;
+      int freqDiff = freq - _radio.getFreq();
+      _serial.println(freqDiff);
+      _serial.println(abs(freqDiff));
+      _radio.setFreq(freq);
       serIn = "";
       return;
     }
@@ -38,9 +42,9 @@ void CAT::processSerial(char serData){
       //Sanity check, this should always be 0
       if(serIn[2] == '0'){
         //Query
-        if(serIn[3] = ';')
+        if(serIn[3] == ';')
           _serial.print(qAFGain());
-        else if (serIn.length() == 6)
+        else if (serIn.length() == 7)
           sAFGain(serIn);
       serIn = "";
       return;
